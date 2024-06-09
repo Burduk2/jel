@@ -110,9 +110,8 @@ Jel.clientJS(attributes: String, code: Function): void
 
 Real-world example usage:
 ```js
-const variableFromBackend = '123';
-
 Jel.clientJS('defer integrity[...]', () => {
-    document.querySelector('.my-element').setAttribute(variableFromBackend)
+    const clientsideVariable = '123';
+    document.querySelector('.my-element').setAttribute('data-data', clientsideVariable);
 });
 ```
