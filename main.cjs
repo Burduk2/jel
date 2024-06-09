@@ -108,7 +108,10 @@ function formatContentExpressions(code) {
 
 function getElementUid() {
     let uid = '';
-    for (let i = 0; i < 32; i++) uid += '0123456789abcdef'[Math.floor(Math.random() * 15)];
+    for (let i = 0; i < 8; i++) {
+        let chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        uid += chars[Math.floor(Math.random() * chars.length)]
+    }
     return uid;
 }
 function setAttrs(element, attrs) {
@@ -131,20 +134,20 @@ function setAttrs(element, attrs) {
     return element;
 }
 function evalJelCode(code) {
-    let __$jelOutputHtmlString = '<!DOCTYPE html><html><head></head><body></body></html>';
+    // let __$jelOutputHtmlString = `<!DOCTYPE html><html><head></head><body></body></html>`;
+    let __$jelOutputHtmlString = '';
     let __$jelElementPlace = 'body';
 
     class Jel {
-        static _documentElementAttributes = [];
-        static head = '';
         static setDocumentAttribute(name, value) {
-            this._documentElementAttributes.push({name: name, value: value});
+            const dom = new JSDOM(__$jelOutputHtmlString);
+            const document = dom.window.document;
+            document.documentElement.setAttribute(name, value);
+            __$jelOutputHtmlString = dom.serialize();
         }
         static addToHead(element, content='') {
-            const closingElements = ['title', 'style', 'script', 'noscript'];
-
             const spaceIndex = element.indexOf(' ');
-            let tagPart = element
+            let tagPart = element;
             let attrs = '';
             if (spaceIndex > 0) {
                 tagPart = element.substring(0, spaceIndex);
@@ -166,39 +169,15 @@ function evalJelCode(code) {
                 }
             } else tag = tagPart;
 
-            let parsedAttrs = ''
-            if (attrs) {
-                const splitAttrs = attrs.match(/(?:[^\s\[\]]+|\[[^\]]*\])+/g);
-                splitAttrs.forEach(attr => {
-                    if (attr.includes('[')) {
-                        const index = attr.indexOf('[');
-                        const name = attr.substring(0, index);
-                        const value = attr.substring(index).slice(1).slice(0, -1);
-                        parsedAttrs += ` ${name}="${value}"`;
-                    } else {
-                        parsedAttrs += attr;
-                    }
-                });
-                parsedAttrs = parsedAttrs.trim();
-            }
-
-            let htmlElement = `<${tag} ${parsedAttrs}>`;
-            closingElements.includes(tag) ? htmlElement += `${content}</${tag}>` : 0;
-            this.head += htmlElement;
+            this.addElement('head', tag, attrs, content);
+        }
+        static clientJS(attrs, code) {
+            const content = '(' + code + ')()';
+            this.addElement('head', 'script', attrs, content);
         }
         static addElement(place, tag, attrs, content='') {
             const dom = new JSDOM(__$jelOutputHtmlString);
             const document = dom.window.document;
-
-            if (this._documentElementAttributes) {
-                this._documentElementAttributes.forEach(attr => {
-                    document.querySelector('html').setAttribute(attr.name, attr.value);
-                });
-                this._documentElementAttributes = [];
-            } if (this.head) {
-                document.querySelector('head').innerHTML += this.head;
-                this.head = '';
-            } 
     
             let element;
             let uid = getElementUid();
