@@ -1,0 +1,5 @@
+syntax.*
+tmp.jel
+.npmignore
+.vscode
+.DS_Store
