@@ -68,13 +68,29 @@ function formatFuncExpressions(code) {
     const matches = getMatchesAndIndexes(code, /\{\$[^}]*\}/gm);
 
     matches.reverse().forEach(match => {
-        let newExpression = match.match.replace('{$', 'Jel.addElement(__$jelElementPlace,"');
-        if (match.match.includes('__PS')) {
-            newExpression = newExpression.replace('__PS', '",__PS');
-            newExpression = newExpression.replace('}', ');');
+        let newExpression = match.match.slice(1, -1)
+        
+        if (newExpression.charAt(newExpression.length - 1) === ']') {
+            let attrs = [];
+            const initialStart = newExpression.indexOf('[');
+            const tag = newExpression.slice(1, initialStart);
+
+            addAttr(initialStart, findClosingBrace('[]', newExpression, initialStart) + 1);
+            function addAttr(start, end) {
+                attrs.push(newExpression.slice(start + 1, end - 1));
+
+                if (newExpression.charAt(end) === '[') {
+                    newStart = end;
+                    newEnd = findClosingBrace('[]', newExpression, newStart) + 1;
+                    addAttr(newStart, newEnd);
+                } 
+            }
+            newExpression = `"${tag}",[${attrs.toString()}]`;
         } else {
-            newExpression = newExpression.replace('}', '","");')
+            newExpression = `"${newExpression.slice(1)}",""`;
         }
+        
+        newExpression = 'Jel.addElement(__$jelElementPlace,' + newExpression + ');'
         code = replaceSubstr(code, match.start, match.end, newExpression);
     });
     return code;
@@ -108,8 +124,12 @@ function formatContentExpressions(code) {
 
 function getElementUid() {
     let uid = '';
-    for (let i = 0; i < 8; i++) {
-        let chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    const nums = '0123456789';
+    const latin = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    const cyrillic = 'АБВГДЕЁЖЗІЇИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзіїийклмнопрстуфхцчшщъыьэюя';
+    const greek = 'ΑΒΓΔΕΖΗΘΙΚΛΜΝΞΟΠΡΣΤΥΦΧΨΩαβγδεζηθικλμνξοπρστυφχψω';
+    const chars = nums + latin + cyrillic + greek;
+    for (let i = 0; i < 4; i++) {
         uid += chars[Math.floor(Math.random() * chars.length)]
     }
     return uid;
@@ -117,32 +137,28 @@ function getElementUid() {
 function setAttrs(element, attrs) {
     if (!attrs) return element;
 
-    const splitAttrs = attrs.match(/(?:[^\s\[\]]+|\[[^\]]*\])+/g);
-    splitAttrs.forEach(attr => {
-        if (attr.charAt(0) === '.') element.classList.add(attr.slice(1));
-        else if (attr.charAt(0) === '#') element.id = attr.slice(1);
-        else if (attr.includes('[')) {
-            const index = attr.indexOf('[');
-            const name = attr.substring(0, index);
-            const value = attr.substring(index).slice(1).slice(0, -1);
-            element.setAttribute(name, value);
-        } else {
-            element.setAttribute(attr, '')
+    attrs.forEach(attr => {
+        const splitIndex = attr.indexOf('=');
+        if (splitIndex === -1) {
+            element.setAttribute(attr, '');
+            return;
         }
+        const name = attr.substring(0, splitIndex);
+        const value = attr.substring(splitIndex).slice(1); 
+        element.setAttribute(name, value);
     });
 
     return element;
 }
 function evalJelCode(code) {
-    // let __$jelOutputHtmlString = `<!DOCTYPE html><html><head></head><body></body></html>`;
-    let __$jelOutputHtmlString = '';
+    let __$jelOutputHtmlString = '<!DOCTYPE html>';
     let __$jelElementPlace = 'body';
-
+    
     class Jel {
-        static setDocumentAttribute(name, value) {
+        static setAttribute(selector, name, value='') {
             const dom = new JSDOM(__$jelOutputHtmlString);
             const document = dom.window.document;
-            document.documentElement.setAttribute(name, value);
+            document.querySelector(selector).setAttribute(name, value);
             __$jelOutputHtmlString = dom.serialize();
         }
         static addToHead(element, content='') {
@@ -171,30 +187,48 @@ function evalJelCode(code) {
 
             this.addElement('head', tag, attrs, content);
         }
-        static clientJS(attrs, code) {
-            const content = '(' + code + ')()';
-            this.addElement('head', 'script', attrs, content);
-        }
         static addElement(place, tag, attrs, content='') {
+            if (!attrs) attrs = [];
             const dom = new JSDOM(__$jelOutputHtmlString);
             const document = dom.window.document;
+            const jelUidAttrName = '_jid';
     
             let element;
             let uid = getElementUid();
-            while (document.querySelector(`[jel-element-uid="${uid}"]`)) uid = getElementUid();
+            while (document.querySelector(`[${jelUidAttrName}="${uid}"]`)) uid = getElementUid();
     
             if (tag) {
+                if (tag.includes(':')) {
+                    let tagPart = tag.split(':');
+                    tag = tagPart[0];
+                    const special = tagPart[1];
+                    if (tag === 'meta') {
+                        if (special === 'utf8') 
+                            attrs.push('charset=UTF-8');
+                        else if (special === 'viewport')
+                            attrs.push('name=viewport', 'content=width=device-width initial-scale=1.0');
+                    } else if (tag === 'link') {
+                        if (special === 'css') 
+                            attrs.push('rel=stylesheet');
+                        else if (special === 'fav' || special === 'favicon') 
+                            attrs.push('rel=shortcut icon');
+                    }
+                }
                 element = document.createElement(tag);
                 if (content && typeof content !== 'function') element.innerHTML = content;
                 element = setAttrs(element, attrs);
-                element.setAttribute('jel-element-uid', uid);
+                element.setAttribute(jelUidAttrName, uid);
                 document.querySelector(place).appendChild(element);
             } else if (typeof content !== 'function') {
                 document.querySelector(place).innerHTML += content;
             }
             
             __$jelOutputHtmlString = dom.serialize();
-            if (typeof content === 'function') content(`[jel-element-uid="${uid}"]`);
+            if (typeof content === 'function') {
+                const selector = tag === 'head' ? 'head' : tag === 'body' ? 'body' 
+                    : `[${jelUidAttrName}="${uid}"]`
+                content(selector);
+            } 
         }
     }
     eval(code);
@@ -211,6 +245,7 @@ function jel(filePath) {
     code = formatContentExpressions(code);
     code = PlaceholderS.unbind(pholders, code);
     code = evalJelCode(code);
+
     return code;
 }
 
