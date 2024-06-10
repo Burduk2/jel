@@ -24,7 +24,7 @@ res.send(htmlString);
 {$anyHTMLElement}{
     function justSomeRegularJS() {...}
 
-    {$otherHTMLElement`some[attribute]`}{
+    {$otherHTMLElement["some=attribute"]}{
         // more JS or HTML elements
     }
     
@@ -35,8 +35,8 @@ res.send(htmlString);
 
 - Real-world example:
 ```js
-{$div`.main-container`}{
-    {$h1`.title data-heading[1]`}('Hello World!');
+{$div["class=main-container"]}{
+    {$h1["class=title"]["data-heading=1"]}('Hello World!');
     {$p}{
         runSomeOfMyJS();
 
@@ -62,56 +62,25 @@ The previous Jel code will produce the following string (here unminified):
 </html>
 ```
 
-That's good, but how do i add elements to &lt;head>?
-
-### Other template-only functions
-
-#### addToHead() - add elements to &lt;head>
-Declaration:
-
-```ts
-Jel.addToHead(tag: String, innerContent: String): void
-```
-
-Example usage:
-
+#### That's good, but how do i add elements to &lt;head>?
 ```js
-Jel.addToHead('style', 'body { background-color: black }');
-Jel.addToHead('script src[/my/js/file.js]');
+{$head}{
+    // your elements here
+}
 ```
 
-##### Special tag names built into Jel
+#### Special tag names built into Jel
 ```js
-// <meta charset="UTF-8">
-Jel.addToHead('meta:utf8');
+{$meta:utf8}
+//=> <meta charset="UTF-8">
 
-// <meta name="viewport" content="width=device-width initial-scale=1.0">
-Jel.addToHead('meta:viewport');
+{$meta:viewport}
+//=> <meta name="viewport" content="width=device-width initial-scale=1.0">
 
-// <link rel="stylesheet" href="/path/to/style.css">
-Jel.addToHead('link:css href[/path/to/style.css]');
+{$link:css["href=/path/to/style.css"]}
+//=> <link rel="stylesheet" href="/path/to/style.css">
 
-// <link rel="shortcut icon" href="/path/to/favicon.ico" type="image/x-icon">
-Jel.addToHead('link:fav href[/path/to/favicon.ico] type[image/x-icon]');
+{$link:fav["href=/path/to/favicon.ico"]["type[image/x-icon]"]}
+//=> <link rel="shortcut icon" href="/path/to/favicon.ico" type="image/x-icon">
 ```
 
-#### setDocumentAttribute() - set attributes of &lt;html>
-Declaraion:
-```ts
-Jel.setDocumentAttribute(name: String, value: String): void
-```
-
-#### clientJS() - add JS that will run on clientside
-
-Declaraion:
-```ts
-Jel.clientJS(attributes: String, code: Function): void
-```
-
-Real-world example usage:
-```js
-Jel.clientJS('defer integrity[...]', () => {
-    const clientsideVariable = '123';
-    document.querySelector('.my-element').setAttribute('data-data', clientsideVariable);
-});
-```

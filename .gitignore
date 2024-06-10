@@ -1,5 +1,4 @@
 syntax.*
-tmp.jel
-.npmignore
+tmp.*
 .vscode
 .DS_Store
